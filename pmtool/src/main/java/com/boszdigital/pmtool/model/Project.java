@@ -7,14 +7,14 @@ package com.boszdigital.pmtool.model;
  * 
  */
 public class Project {
-	
+
 	/** The code assigned to the project */
 	private String code;
 	/** The name assigned to the project */
 	private String name;
 	/** The amount of time spent on the project */
 	private float time;
-	
+
 	/* -- Constructors -- */
 	public Project() {
 
@@ -25,7 +25,7 @@ public class Project {
 		this.name = name;
 		this.time = time;
 	}
-	
+
 	/* -- Getters and Setters -- */
 
 	public String getCode() {
@@ -51,6 +51,16 @@ public class Project {
 	public void setTime(float time) {
 		this.time = time;
 	}
-	
+
 	/* -- Other methods -- */
+
+	/**
+	 * This method adds hours to the total time of the project
+	 * 
+	 * @param hours
+	 *            The amount of hours to add to the project
+	 */
+	public void addTime(float hours) {
+		this.time = this.time + hours;
+	}
 }
