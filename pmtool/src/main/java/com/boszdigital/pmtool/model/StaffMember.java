@@ -59,8 +59,15 @@ public class StaffMember {
 		this.projects = projects;
 	}
 
-	/* -- Other methods -- */
+	public float getTotalTime() {
+		return totalTime;
+	}
 
+	public void setTotalTime(float totalTime) {
+		this.totalTime = totalTime;
+	}
+
+	/* -- Other methods -- */
 	/**
 	 * The method adds hours to an existing project assigned to the staff
 	 * member. If the project does not exists, the method creates the project
@@ -93,5 +100,23 @@ public class StaffMember {
 	 */
 	public void addTotalTime(float hours) {
 		this.totalTime = this.totalTime + hours;
+	}
+
+	/**
+	 * This method generates the member code name from the full name.
+	 * 
+	 * @param fullName
+	 *            The full name used to create the code name.
+	 * @return the string with the generated code name.
+	 */
+	public static String generateStaffMemberCodeName(String fullName) {
+		String codeName = new String();
+		fullName = fullName.replace(" ", "");
+		String[] parts = fullName.split(",");
+		codeName = parts[0];
+		if (parts.length > 1) {
+			codeName += parts[1].substring(0, 4);
+		}
+		return codeName.toUpperCase();
 	}
 }

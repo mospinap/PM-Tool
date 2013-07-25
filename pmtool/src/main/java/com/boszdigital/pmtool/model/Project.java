@@ -63,4 +63,19 @@ public class Project {
 	public void addTime(float hours) {
 		this.time = this.time + hours;
 	}
+	
+	/**
+	 * This method generates the project code from the project name.
+	 * 
+	 * @param projectName The project name used to create the code.
+	 * @return the string with the generated code.
+	 */
+	public static String generateProjectCode(String projectName) {
+		String code = new String();
+		code = projectName.replace(" ", "");
+		if(code.length() > 5){
+			code = code.substring(0, 5);
+		}
+		return code.toUpperCase();
+	}
 }

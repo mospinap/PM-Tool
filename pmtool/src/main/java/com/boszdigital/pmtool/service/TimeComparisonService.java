@@ -3,7 +3,9 @@ package com.boszdigital.pmtool.service;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,10 @@ import com.boszdigital.pmtool.model.StaffMember;
 public class TimeComparisonService {
 
 	private static final char ORACLE_SEPARATOR = '\t';
+	
+	private String folderPath;
+	private String activeTimeFileName;
+	private String oracleFileName;
 
 	private Map<String, StaffMember> staffActiveTime = new TreeMap<String, StaffMember>();
 	private Map<String, StaffMember> staffOracle = new TreeMap<String, StaffMember>();
@@ -37,18 +43,24 @@ public class TimeComparisonService {
 	private Map<String, String> fullStaff = new TreeMap<String, String>();
 	private Map<String, String> projects = new TreeMap<String, String>();
 
-	public void run(String[] paths) {
+	public void run(String[] args) {
+		folderPath = args[0];
+		activeTimeFileName = args[1];
+		oracleFileName = args[2];
 		try {
-			parseActiveTimeFile("staffoutput_0815-0821.csv");
+			parseActiveTimeFile(folderPath + activeTimeFileName);//"staffoutput_0815-0821.csv");
 			System.out.println("**************************"); // TODO Delete
 			System.out.println("**************************"); // TODO Delete
-			parseOracleFile("fnd_gfm_0815-0821.tsv", ORACLE_SEPARATOR);
+			//parseOracleFile("fnd_gfm_0815-0821.tsv", ORACLE_SEPARATOR);  // TODO Delete
+			parseOracleFile(folderPath + oracleFileName, ORACLE_SEPARATOR);
 
 			System.out.println("**************************"); // TODO Delete
 			System.out.println("**************************"); // TODO Delete
 			System.out.println(fullStaff); // TODO Delete
 			System.out.println(projects); // TODO Delete
 			writeReport();
+			System.out.println(new SimpleDateFormat("yyyy-MM-dd").format(new Date(System.currentTimeMillis())));
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -66,9 +78,9 @@ public class TimeComparisonService {
 		// System.out.println(row[0]); // TODO Delete
 		int columnCount = row.length;
 		for (int i = 5; i < row.length; i++) {
-			StaffMember person = new StaffMember(
-					generatePersonCodeName(row[i]), row[i]);
-			staff.add(person);
+			StaffMember staffMember = new StaffMember(
+					StaffMember.generateStaffMemberCodeName(row[i]), row[i]);
+			staff.add(staffMember);
 			// System.out.println("Person: " + person.getCodeName()); //TODO
 			// Delete
 		}
@@ -76,7 +88,7 @@ public class TimeComparisonService {
 		while ((row = reader.readNext()) != null) {
 			if (row.length == columnCount) {
 				String projectName = row[2];
-				String projectCode = generateProjectCode(projectName);
+				String projectCode = Project.generateProjectCode(projectName);
 				// System.out.print(projectCode + "|"); //TODO Delete
 				for (int i = 5; i < row.length; i++) {
 					float hours = Float.parseFloat(row[i]);
@@ -128,7 +140,7 @@ public class TimeComparisonService {
 		while ((row = reader.readNext()) != null) {
 			// System.out.println(row[2]); //TODO Delete
 			String personName = row[2];
-			String personCodeName = generatePersonCodeName(personName);
+			String personCodeName = StaffMember.generateStaffMemberCodeName(personName);
 
 			StaffMember person;
 			if (staffOracle.containsKey(personCodeName)) {
@@ -137,9 +149,8 @@ public class TimeComparisonService {
 				person = new StaffMember(personCodeName, personName);
 			}
 			String projectName = row[3];
-			String projectCode = generateProjectCode(projectName);// TODO DELETE
-																	// projectName.substring(0,
-																	// 5);
+			String projectCode = Project.generateProjectCode(projectName);
+			
 			float hours = Float.parseFloat(row[13]);
 			person.addTime(projectCode, projectName, hours);
 			person.addTotalTime(hours);
@@ -174,23 +185,9 @@ public class TimeComparisonService {
 		ExcelReportHelper reportHelper = new ExcelReportHelper();
 
 		// Write the output to a file
-		FileOutputStream fileOut = new FileOutputStream("workbook.xls");
+		FileOutputStream fileOut = new FileOutputStream(folderPath + "workbook.xls"); // FIXME The name of the output constant and date. 
 		reportHelper.writeTimeDiferenceReport().write(fileOut);
 		fileOut.close();
-	}
-
-	private String generatePersonCodeName(String fullName) {
-		String codeName = new String();
-		String[] parts = fullName.split(",");
-		codeName = parts[0];
-		codeName += parts[1].trim().substring(0, 4);
-		return codeName.toUpperCase();
-	}
-
-	private String generateProjectCode(String projectName) {
-		String code = new String();
-		code = projectName.replace(" ", "");
-		return code.substring(0, 5).toUpperCase();
 	}
 
 	private class ExcelReportHelper {
@@ -242,11 +239,55 @@ public class TimeComparisonService {
 			for (Iterator<String> i = fullStaff.keySet().iterator(); i
 					.hasNext();) {
 				columnPos = 0;
-				String key = i.next();
+				String staffKey = i.next();
 				Row row = sheet.createRow(rowPos++);
-				row.createCell(columnPos++).setCellValue(fullStaff.get(key));
+				row.createCell(columnPos++).setCellValue(fullStaff.get(staffKey));
+				System.out.println(staffKey); //TODO Delete
+				StaffMember staffMemberActiveTime = staffActiveTime.get(staffKey);
+				StaffMember staffMemberOracle = staffOracle.get(staffKey);
+				
+				createTotalCells(row, staffMemberActiveTime, staffMemberOracle);
+				for(Iterator<String> j = projects.keySet().iterator(); j.hasNext(); ){
+					String projectKey = j.next();
+					createTimeCells(row, projectKey, staffMemberActiveTime, staffMemberOracle);
+				}
+				
+				
+				
 			}
 
+		}
+		
+		private void createTotalCells(Row row, StaffMember staffMemberActiveTime, StaffMember staffMemberOracle){
+			float timeActiveTime = 0;
+			float timeOracle = 0;
+			if(staffMemberActiveTime != null){
+				timeActiveTime = staffMemberActiveTime.getTotalTime();
+			}
+			if(staffMemberOracle != null){
+				timeOracle = staffMemberOracle.getTotalTime();
+			}
+			row.createCell(columnPos++).setCellValue(timeActiveTime);
+			row.createCell(columnPos++).setCellValue(timeOracle);
+		}
+		
+		private void createTimeCells(Row row, String projectKey, StaffMember staffMemberActiveTime, StaffMember staffMemberOracle){
+			float timeActiveTime = 0;
+			float timeOracle = 0;
+			if(staffMemberActiveTime != null){
+				Project project = staffMemberActiveTime.getProjects().get(projectKey);
+				if(project != null){
+					timeActiveTime = project.getTime();
+				}
+			}
+			if(staffMemberOracle != null){
+				Project project = staffMemberOracle.getProjects().get(projectKey);
+				if(project != null){
+					timeOracle = project.getTime();
+				}
+			}
+			row.createCell(columnPos++).setCellValue(timeActiveTime);
+			row.createCell(columnPos++).setCellValue(timeOracle);
 		}
 	}
 }
