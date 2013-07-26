@@ -16,9 +16,8 @@ The system reads the two files and generates a report with the time differences.
 
 Running
 
-1. Download the app.
-2. Unzip de downloaded file to a location of your choosing.
-3. From the location the app was unziped, executed the following command:
+1. Download the jar file to a location of your choosing.
+2. From the location the app was unziped, executed the following command:
 ```
 	java -jar pmtool.jar {path/to/folder/} {active_time_file_name.ext} {oracle_file_name.ext}
 

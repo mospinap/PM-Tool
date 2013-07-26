@@ -51,6 +51,12 @@ public class TimeComparisonService {
 	private Map<String, String> fullStaff = new TreeMap<String, String>();
 	private Map<String, String> projects = new TreeMap<String, String>();
 
+	/**
+	 * This is the method that runs the process of loading and comparing the
+	 * files, and generating the report.
+	 * 
+	 * @param args
+	 */
 	public void run(String[] args) {
 		long initialTime = System.currentTimeMillis();
 		System.out.println("*** Initiating Time Comparison Process.");
@@ -68,7 +74,8 @@ public class TimeComparisonService {
 			}
 		} else {
 			System.out.println("\t*** ERROR: Invalid number of arguments.");
-			System.out.println("\t*** ERROR: java -jar pmtool.jar path/to/files active_time_file_name.ext oracle_file_name.ext ");
+			System.out
+					.println("\t*** ERROR: java -jar pmtool.jar path/to/folder/ active_time_file_name.ext oracle_file_name.ext ");
 		}
 
 		System.out.println("*** Time Comparison Process finalized.");
@@ -76,6 +83,13 @@ public class TimeComparisonService {
 				+ (System.currentTimeMillis() - initialTime) + "ms");
 	}
 
+	/**
+	 * This method parses the Active Time file into a hash map.
+	 * 
+	 * @param path
+	 *            the path of the Active Time file.
+	 * @throws IOException
+	 */
 	private void parseActiveTimeFile(String path) throws IOException {
 		System.out.println("\tParsing the Active Time file ["
 				+ activeTimeFileName + "].");
@@ -133,6 +147,15 @@ public class TimeComparisonService {
 				+ "] parsed.");
 	}
 
+	/**
+	 * This method parses the oracle file into a hash map.
+	 * 
+	 * @param path
+	 *            the path of the oracle file.
+	 * @param separator
+	 *            the separator used on the oracle file.
+	 * @throws IOException
+	 */
 	private void parseOracleFile(String path, char separator)
 			throws IOException {
 		System.out.println("\tParsing the Oracle file [" + oracleFileName
@@ -177,6 +200,12 @@ public class TimeComparisonService {
 		System.out.println("\tOracle file [" + oracleFileName + "] parsed.");
 	}
 
+	/**
+	 * This method creates the excel file, generates the report, and writes it
+	 * to the disc.
+	 * 
+	 * @throws IOException
+	 */
 	private void writeReport() throws IOException {
 		System.out.println("\tCreating Report.");
 		ExcelReportHelper reportHelper = new ExcelReportHelper();
@@ -193,6 +222,12 @@ public class TimeComparisonService {
 				+ "\".");
 	}
 
+	/**
+	 * Helper class to generate the report of the time comparison.
+	 * 
+	 * @author <a href="mailto:daniel.hoyos@boszdigital.com">Daniel Hoyos</a>
+	 * 
+	 */
 	private class ExcelReportHelper {
 		private final String FONT_NAME = "Calibri";
 		private final short FONT_SIZE = 11;
@@ -207,7 +242,6 @@ public class TimeComparisonService {
 		private Sheet sheet;
 		private Row row;
 		private Cell cell;
-		private CellStyle cellStyleNormal;
 		private CellStyle cellStyleTitle;
 		private CellStyle cellStyleTableRowLeft;
 		private CellStyle cellStyleTableRowRight;
@@ -215,6 +249,11 @@ public class TimeComparisonService {
 		private CellStyle cellStyleTableRowRightOdd;
 		private CellStyle cellStyleTableRowError;
 
+		/**
+		 * Method that initializes the writing of the report.
+		 * 
+		 * @return
+		 */
 		public Workbook writeTimeDiferenceReport() {
 			// create a new workbook
 			workbook = new HSSFWorkbook();
@@ -233,6 +272,9 @@ public class TimeComparisonService {
 			return workbook;
 		}
 
+		/**
+		 * This method creates the rows of the table title.
+		 */
 		private void createTitleRow() {
 			columnPos = 1;
 
@@ -280,6 +322,11 @@ public class TimeComparisonService {
 			}
 		}
 
+		/**
+		 * This method creates a cell containing the name of the staff. Even
+		 * rows are shown in white. Odd row are shown in light turquoise. Cells
+		 * with errors are shown in maroon.
+		 */
 		public void createStaffRows() {
 			for (Iterator<String> i = fullStaff.keySet().iterator(); i
 					.hasNext();) {
@@ -308,6 +355,14 @@ public class TimeComparisonService {
 			}
 		}
 
+		/**
+		 * This method creates a cell containing the total time. Even rows are
+		 * shown in white. Odd row are shown in light turquoise. Cells with
+		 * errors are shown in maroon.
+		 * 
+		 * @param staffMemberActiveTime
+		 * @param staffMemberOracle
+		 */
 		private void createTotalCells(StaffMember staffMemberActiveTime,
 				StaffMember staffMemberOracle) {
 			float timeActiveTime = 0;
@@ -340,6 +395,18 @@ public class TimeComparisonService {
 			cell.setCellStyle(cellStyleRight);
 		}
 
+		/**
+		 * This method creates a cell containing the time. Even rows are shown
+		 * in white. Odd row are shown in light turquoise. Cells with errors are
+		 * shown in maroon.
+		 * 
+		 * @param projectKey
+		 *            The key of the project.
+		 * @param staffMemberActiveTime
+		 *            The staff member from the active time report.
+		 * @param staffMemberOracle
+		 *            The staff member from the oracle report.
+		 */
 		private void createTimeCells(String projectKey,
 				StaffMember staffMemberActiveTime, StaffMember staffMemberOracle) {
 			float timeActiveTime = 0;
@@ -381,6 +448,21 @@ public class TimeComparisonService {
 			cell.setCellStyle(cellStyleRight);
 		}
 
+		/**
+		 * Method to create cell styles according to the needs of the different
+		 * cells
+		 * 
+		 * @param boldWeight
+		 *            the short value of the bold weight
+		 * @param backgroundColor
+		 *            the short value of the background color
+		 * @param border
+		 *            the short values of the borders border[0]: Bottom Border.
+		 *            border[1]: Left Border. border[2]: Right Border.
+		 *            border[3]: Top Border.
+		 * 
+		 * @return the cell style.
+		 */
 		private CellStyle createCellStyle(short boldWeight,
 				short backgroundColor, short... border) {
 			// Create a new font and alter it.
@@ -402,11 +484,10 @@ public class TimeComparisonService {
 			return style;
 		}
 
+		/**
+		 * Initializes all the styles used to set the cells.
+		 */
 		private void setStyles() {
-			cellStyleNormal = createCellStyle(Font.BOLDWEIGHT_NORMAL,
-					IndexedColors.WHITE.getIndex(), CellStyle.BORDER_NONE,
-					CellStyle.BORDER_NONE, CellStyle.BORDER_NONE,
-					CellStyle.BORDER_NONE);
 			cellStyleTitle = createCellStyle(Font.BOLDWEIGHT_BOLD,
 					IndexedColors.WHITE.getIndex(), CellStyle.BORDER_MEDIUM,
 					CellStyle.BORDER_MEDIUM, CellStyle.BORDER_MEDIUM,
