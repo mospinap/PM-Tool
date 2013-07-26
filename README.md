@@ -19,11 +19,11 @@ Running
 1. Download the app.
 2. Unzip de downloaded file to a location of your choosing.
 3. From the location the app was unziped, executed the following command:
-
+```
 	java -jar pmtool.jar {path/to/folder/} {active_time_file_name.ext} {oracle_file_name.ext}
 
 			{path/to/folder/}			Is the path to the folder where the files are located and where
 										the output is to be stored.
 			{active_time_file_name.ext}	The name and extention of the active time file.
 			{oracle_file_name.ext}		The name and extention of the oracle file.
-
+```
