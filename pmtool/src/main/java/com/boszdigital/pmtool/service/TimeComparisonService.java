@@ -1,5 +1,6 @@
 package com.boszdigital.pmtool.service;
 
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -36,7 +37,10 @@ import com.boszdigital.pmtool.model.StaffMember;
 public class TimeComparisonService {
 
 	private static final char ORACLE_SEPARATOR = '\t';
-	
+	private static final String OUTPUT_NAME = "Output_Report_";
+	private static final String OUTPUT_NAME_FORMAT = "yyyy-MM-dd";
+	private static final String OUTPUT_NAME_EXT = ".xls";
+
 	private String folderPath;
 	private String activeTimeFileName;
 	private String oracleFileName;
@@ -48,30 +52,39 @@ public class TimeComparisonService {
 	private Map<String, String> projects = new TreeMap<String, String>();
 
 	public void run(String[] args) {
-		folderPath = args[0];
-		activeTimeFileName = args[1];
-		oracleFileName = args[2];
-		try {
-			parseActiveTimeFile(folderPath + activeTimeFileName);//"staffoutput_0815-0821.csv");
-			System.out.println("**************************"); // TODO Delete
-			System.out.println("**************************"); // TODO Delete
-			//parseOracleFile("fnd_gfm_0815-0821.tsv", ORACLE_SEPARATOR);  // TODO Delete
-			parseOracleFile(folderPath + oracleFileName, ORACLE_SEPARATOR);
+		long initialTime = System.currentTimeMillis();
+		System.out.println("*** Initiating Time Comparison Process.");
+		if (args.length == 3) {
+			folderPath = args[0];
+			activeTimeFileName = args[1];
+			oracleFileName = args[2];
+			try {
+				parseActiveTimeFile(folderPath + activeTimeFileName);
+				parseOracleFile(folderPath + oracleFileName, ORACLE_SEPARATOR);
+				writeReport();
 
-			System.out.println("**************************"); // TODO Delete
-			System.out.println("**************************"); // TODO Delete
-			System.out.println(fullStaff); // TODO Delete
-			System.out.println(projects); // TODO Delete
-			writeReport();
-			System.out.println(new SimpleDateFormat("yyyy-MM-dd").format(new Date(System.currentTimeMillis())));
-			
-		} catch (IOException e) {
-			e.printStackTrace();
+			} catch (IOException e) {
+				System.out.println("\t" + e.getMessage());
+			}
+		} else {
+			System.out.println("\t*** ERROR: Invalid number of arguments.");
+			System.out.println("\t*** ERROR: java -jar pmtool.jar path/to/files active_time_file_name.ext oracle_file_name.ext ");
 		}
+
+		System.out.println("*** Time Comparison Process finalized.");
+		System.out.println("*** Time Spend: "
+				+ (System.currentTimeMillis() - initialTime) + "ms");
 	}
 
 	private void parseActiveTimeFile(String path) throws IOException {
-		CSVReader reader = new CSVReader(new FileReader(path));
+		System.out.println("\tParsing the Active Time file ["
+				+ activeTimeFileName + "].");
+		CSVReader reader;
+		try {
+			reader = new CSVReader(new FileReader(path));
+		} catch (FileNotFoundException e) {
+			throw new IOException("*** ERROR: File not found: " + path);
+		}
 		String[] row;
 		// Skips the first four rows of the file
 		for (int i = 0; i < 4; i++) {
@@ -79,21 +92,18 @@ public class TimeComparisonService {
 		}
 		List<StaffMember> staff = new ArrayList<StaffMember>();
 		row = reader.readNext();
-		// System.out.println(row[0]); // TODO Delete
+
 		int columnCount = row.length;
 		for (int i = 5; i < row.length; i++) {
 			StaffMember staffMember = new StaffMember(
 					StaffMember.generateStaffMemberCodeName(row[i]), row[i]);
 			staff.add(staffMember);
-			// System.out.println("Person: " + person.getCodeName()); //TODO
-			// Delete
 		}
 
 		while ((row = reader.readNext()) != null) {
 			if (row.length == columnCount) {
 				String projectName = row[2];
 				String projectCode = Project.generateProjectCode(projectName);
-				// System.out.print(projectCode + "|"); //TODO Delete
 				for (int i = 5; i < row.length; i++) {
 					float hours = Float.parseFloat(row[i]);
 					if (hours != 0) {
@@ -101,7 +111,6 @@ public class TimeComparisonService {
 						person.addTime(projectCode, projectName, hours);
 						person.addTotalTime(hours);
 						staff.set(i - 5, person);
-						// System.out.print(hours + "|"); //TODO Delete
 					}
 				}
 				if (!projects.containsKey(projectCode)) {
@@ -119,32 +128,29 @@ public class TimeComparisonService {
 				}
 			}
 		}
-
-		// TODO delete this section
-		for (Iterator<StaffMember> i = staff.iterator(); i.hasNext();) {
-			StaffMember person = i.next();
-			String cad = person.getFullName();
-			for (Iterator<Project> j = person.getProjects().values().iterator(); j
-					.hasNext();) {
-				Project project = j.next();
-				cad += "\n\t" + project.getCode() + ": " + project.getTime();
-			}
-			System.out.println(cad);
-		}
-		// TODO End of section
 		reader.close();
+		System.out.println("\tActive Time file [" + activeTimeFileName
+				+ "] parsed.");
 	}
 
 	private void parseOracleFile(String path, char separator)
 			throws IOException {
-		CSVReader reader = new CSVReader(new FileReader(path), separator);
+		System.out.println("\tParsing the Oracle file [" + oracleFileName
+				+ "].");
+
+		CSVReader reader;
+		try {
+			reader = new CSVReader(new FileReader(path), separator);
+		} catch (FileNotFoundException e) {
+			throw new IOException("*** ERROR: File not found: " + path);
+		}
 		String[] row;
 		// Skips the first row of the file
 		reader.readNext();
 		while ((row = reader.readNext()) != null) {
-			// System.out.println(row[2]); //TODO Delete
 			String personName = row[2];
-			String personCodeName = StaffMember.generateStaffMemberCodeName(personName);
+			String personCodeName = StaffMember
+					.generateStaffMemberCodeName(personName);
 
 			StaffMember person;
 			if (staffOracle.containsKey(personCodeName)) {
@@ -154,7 +160,7 @@ public class TimeComparisonService {
 			}
 			String projectName = row[3];
 			String projectCode = Project.generateProjectCode(projectName);
-			
+
 			float hours = Float.parseFloat(row[13]);
 			person.addTime(projectCode, projectName, hours);
 			person.addTotalTime(hours);
@@ -167,31 +173,24 @@ public class TimeComparisonService {
 				fullStaff.put(personCodeName, personName);
 			}
 		}
-
-		// TODO delete this section
-		for (Iterator<StaffMember> i = staffOracle.values().iterator(); i
-				.hasNext();) {
-			StaffMember person = i.next();
-			String cad = person.getFullName();
-			for (Iterator<Project> j = person.getProjects().values().iterator(); j
-					.hasNext();) {
-				Project project = j.next();
-				cad += "\n\t" + project.getCode() + ": " + project.getTime();
-			}
-			System.out.println(cad);
-		}
-		// TODO End of section
-
 		reader.close();
+		System.out.println("\tOracle file [" + oracleFileName + "] parsed.");
 	}
 
 	private void writeReport() throws IOException {
+		System.out.println("\tCreating Report.");
 		ExcelReportHelper reportHelper = new ExcelReportHelper();
-
 		// Write the output to a file
-		FileOutputStream fileOut = new FileOutputStream(folderPath + "workbook.xls"); // FIXME The name of the output constant and date. 
+		String outputFileName = OUTPUT_NAME
+				+ new SimpleDateFormat(OUTPUT_NAME_FORMAT).format(new Date(
+						System.currentTimeMillis())) + OUTPUT_NAME_EXT;
+		FileOutputStream fileOut = new FileOutputStream(folderPath
+				+ outputFileName);
 		reportHelper.writeTimeDiferenceReport().write(fileOut);
 		fileOut.close();
+		System.out.println("\tReport Created.");
+		System.out.println("\tReport Saved to \"" + folderPath + outputFileName
+				+ "\".");
 	}
 
 	private class ExcelReportHelper {
@@ -199,10 +198,11 @@ public class TimeComparisonService {
 		private final short FONT_SIZE = 11;
 		private final String ACTIVETIME_TITLE = "ACT";
 		private final String ORACLE_TITLE = "ORA";
-		
+
 		private int columnPos = 0;
 		private int rowPos = 0;
-		
+		private int errors = 0;
+
 		private Workbook workbook;
 		private Sheet sheet;
 		private Row row;
@@ -221,16 +221,15 @@ public class TimeComparisonService {
 			setStyles();
 			// create a new sheet
 			sheet = workbook.createSheet();
-			// create the title row
+			// create rows
 			createTitleRow();
-
 			createStaffRows();
-			
+
 			// Auto adjust columns
-			for(int i = 0; i < (projects.size() * 2) + 3;i++){
+			for (int i = 0; i < (projects.size() * 2) + 3; i++) {
 				sheet.autoSizeColumn(i);
 			}
-
+			System.out.println("*** Number of errors found: " + errors);
 			return workbook;
 		}
 
@@ -244,9 +243,8 @@ public class TimeComparisonService {
 			cell = row.createCell(columnPos++);
 			cell.setCellValue(ORACLE_TITLE);
 			cell.setCellStyle(cellStyleTableRowRight);
-			//row.createCell(columnPos++).setCellValue(ACTIVETIME_TITLE); //TODO Delete
-			//row.createCell(columnPos++).setCellValue(ORACLE_TITLE); //TODO Delete
-			for (Iterator<String> i = projects.values().iterator(); i.hasNext(); i.next()) {
+			for (Iterator<String> i = projects.values().iterator(); i.hasNext(); i
+					.next()) {
 				cell = row.createCell(columnPos++);
 				cell.setCellValue(ACTIVETIME_TITLE);
 				cell.setCellStyle(cellStyleTableRowLeft);
@@ -266,9 +264,6 @@ public class TimeComparisonService {
 			cell = row.createCell(columnPos++);
 			cell.setCellValue("");
 			cell.setCellStyle(cellStyleTitle);
-			//row.createCell(columnPos++).setCellValue("Staff Name"); //TODO Delete
-			//row.createCell(columnPos++).setCellValue("Total");
-			//row.createCell(columnPos++).setCellValue("");
 			sheet.addMergedRegion(new CellRangeAddress(rowPos - 1, rowPos - 1,
 					columnPos - 2, columnPos - 1));
 
@@ -279,8 +274,7 @@ public class TimeComparisonService {
 				cell = row.createCell(columnPos++);
 				cell.setCellValue("");
 				cell.setCellStyle(cellStyleTitle);
-				//row.createCell(columnPos++).setCellValue(i.next());
-				//row.createCell(columnPos++).setCellValue("");
+
 				sheet.addMergedRegion(new CellRangeAddress(rowPos - 1,
 						rowPos - 1, columnPos - 2, columnPos - 1));
 			}
@@ -294,42 +288,40 @@ public class TimeComparisonService {
 				row = sheet.createRow(rowPos++);
 				cell = row.createCell(columnPos++);
 				cell.setCellValue(fullStaff.get(staffKey));
-				if(rowPos % 2 == 0 ){
+				if (rowPos % 2 == 0) {
 					cell.setCellStyle(cellStyleTableRowLeft);
 				} else {
 					cell.setCellStyle(cellStyleTableRowLeftOdd);
 				}
-				//row.createCell(columnPos++).setCellValue(fullStaff.get(staffKey));
-				System.out.println(staffKey); //TODO Delete
-				StaffMember staffMemberActiveTime = staffActiveTime.get(staffKey);
-				StaffMember staffMemberOracle = staffOracle.get(staffKey);
-				
-				createTotalCells(staffMemberActiveTime, staffMemberOracle);
-				for(Iterator<String> j = projects.keySet().iterator(); j.hasNext(); ){
-					String projectKey = j.next();
-					
-					createTimeCells(projectKey, staffMemberActiveTime, staffMemberOracle);
-				}
-				
-				
-				
-			}
 
+				StaffMember staffMemberActiveTime = staffActiveTime
+						.get(staffKey);
+				StaffMember staffMemberOracle = staffOracle.get(staffKey);
+
+				createTotalCells(staffMemberActiveTime, staffMemberOracle);
+				for (Iterator<String> j = projects.keySet().iterator(); j
+						.hasNext();) {
+					String projectKey = j.next();
+					createTimeCells(projectKey, staffMemberActiveTime,
+							staffMemberOracle);
+				}
+			}
 		}
-		
-		private void createTotalCells(StaffMember staffMemberActiveTime, StaffMember staffMemberOracle){
+
+		private void createTotalCells(StaffMember staffMemberActiveTime,
+				StaffMember staffMemberOracle) {
 			float timeActiveTime = 0;
 			float timeOracle = 0;
 			CellStyle cellStyleLeft;
 			CellStyle cellStyleRight;
-			if(staffMemberActiveTime != null){
+			if (staffMemberActiveTime != null) {
 				timeActiveTime = staffMemberActiveTime.getTotalTime();
 			}
-			if(staffMemberOracle != null){
+			if (staffMemberOracle != null) {
 				timeOracle = staffMemberOracle.getTotalTime();
 			}
-			if(timeActiveTime == timeOracle){
-				if(rowPos % 2 == 0 ){
+			if (timeActiveTime == timeOracle) {
+				if (rowPos % 2 == 0) {
 					cellStyleLeft = cellStyleTableRowLeft;
 					cellStyleRight = cellStyleTableRowRight;
 				} else {
@@ -346,29 +338,30 @@ public class TimeComparisonService {
 			cell = row.createCell(columnPos++);
 			cell.setCellValue(timeOracle);
 			cell.setCellStyle(cellStyleRight);
-			//row.createCell(columnPos++).setCellValue(timeActiveTime);
-			//row.createCell(columnPos++).setCellValue(timeOracle);
 		}
-		
-		private void createTimeCells(String projectKey, StaffMember staffMemberActiveTime, StaffMember staffMemberOracle){
+
+		private void createTimeCells(String projectKey,
+				StaffMember staffMemberActiveTime, StaffMember staffMemberOracle) {
 			float timeActiveTime = 0;
 			float timeOracle = 0;
 			CellStyle cellStyleLeft;
 			CellStyle cellStyleRight;
-			if(staffMemberActiveTime != null){
-				Project project = staffMemberActiveTime.getProjects().get(projectKey);
-				if(project != null){
+			if (staffMemberActiveTime != null) {
+				Project project = staffMemberActiveTime.getProjects().get(
+						projectKey);
+				if (project != null) {
 					timeActiveTime = project.getTime();
 				}
 			}
-			if(staffMemberOracle != null){
-				Project project = staffMemberOracle.getProjects().get(projectKey);
-				if(project != null){
+			if (staffMemberOracle != null) {
+				Project project = staffMemberOracle.getProjects().get(
+						projectKey);
+				if (project != null) {
 					timeOracle = project.getTime();
 				}
 			}
-			if(timeActiveTime == timeOracle){
-				if(rowPos % 2 == 0 ){
+			if (timeActiveTime == timeOracle) {
+				if (rowPos % 2 == 0) {
 					cellStyleLeft = cellStyleTableRowLeft;
 					cellStyleRight = cellStyleTableRowRight;
 				} else {
@@ -376,6 +369,7 @@ public class TimeComparisonService {
 					cellStyleRight = cellStyleTableRowRightOdd;
 				}
 			} else {
+				errors++;
 				cellStyleLeft = cellStyleTableRowError;
 				cellStyleRight = cellStyleTableRowError;
 			}
@@ -385,41 +379,58 @@ public class TimeComparisonService {
 			cell = row.createCell(columnPos++);
 			cell.setCellValue(timeOracle);
 			cell.setCellStyle(cellStyleRight);
-			//row.createCell(columnPos++).setCellValue(timeActiveTime);
-			//row.createCell(columnPos++).setCellValue(timeOracle);
 		}
-		
-		private CellStyle createCellStyle(short boldWeight, short backgroundColor, short... border){
+
+		private CellStyle createCellStyle(short boldWeight,
+				short backgroundColor, short... border) {
 			// Create a new font and alter it.
-		    Font font = workbook.createFont();
-		    font.setFontHeightInPoints(FONT_SIZE);
-		    font.setFontName("FONT_NAME");
-		    font.setBoldweight(boldWeight);
-		    // Create a new style
+			Font font = workbook.createFont();
+			font.setFontHeightInPoints(FONT_SIZE);
+			font.setFontName(FONT_NAME);
+			font.setBoldweight(boldWeight);
+			// Create a new style
 			CellStyle style = workbook.createCellStyle();
 			style.setFont(font);
-			// style.setFillBackgroundColor(backgroundColor);
-			//style.setFillForegroundColor(IndexedColors.ORANGE.getIndex());
 			style.setFillForegroundColor(backgroundColor);
-		    style.setFillPattern(CellStyle.SOLID_FOREGROUND);
+			style.setFillPattern(CellStyle.SOLID_FOREGROUND);
 			// Borders
 			style.setBorderBottom(border[0]);
-		    style.setBorderLeft(border[1]);
-		    style.setBorderRight(border[2]);
-		    style.setBorderTop(border[3]);
-			
-			
+			style.setBorderLeft(border[1]);
+			style.setBorderRight(border[2]);
+			style.setBorderTop(border[3]);
+
 			return style;
 		}
-		
-		private void setStyles(){
-			cellStyleNormal = createCellStyle(Font.BOLDWEIGHT_NORMAL, IndexedColors.WHITE.getIndex(), CellStyle.BORDER_NONE, CellStyle.BORDER_NONE, CellStyle.BORDER_NONE, CellStyle.BORDER_NONE);
-			cellStyleTitle = createCellStyle(Font.BOLDWEIGHT_BOLD, IndexedColors.WHITE.getIndex(), CellStyle.BORDER_MEDIUM, CellStyle.BORDER_MEDIUM, CellStyle.BORDER_MEDIUM, CellStyle.BORDER_MEDIUM);
-			cellStyleTableRowLeft = createCellStyle(Font.BOLDWEIGHT_BOLD, IndexedColors.WHITE.getIndex(), CellStyle.BORDER_THIN, CellStyle.BORDER_MEDIUM, CellStyle.BORDER_THIN, CellStyle.BORDER_THIN);
-			cellStyleTableRowRight = createCellStyle(Font.BOLDWEIGHT_BOLD, IndexedColors.WHITE.getIndex(), CellStyle.BORDER_THIN, CellStyle.BORDER_THIN, CellStyle.BORDER_MEDIUM, CellStyle.BORDER_THIN);
-			cellStyleTableRowLeftOdd = createCellStyle(Font.BOLDWEIGHT_BOLD, IndexedColors.LIGHT_TURQUOISE.getIndex(), CellStyle.BORDER_THIN, CellStyle.BORDER_MEDIUM, CellStyle.BORDER_THIN, CellStyle.BORDER_THIN);
-			cellStyleTableRowRightOdd = createCellStyle(Font.BOLDWEIGHT_BOLD, IndexedColors.LIGHT_TURQUOISE.getIndex(), CellStyle.BORDER_THIN, CellStyle.BORDER_THIN, CellStyle.BORDER_MEDIUM, CellStyle.BORDER_THIN);
-			cellStyleTableRowError = createCellStyle(Font.BOLDWEIGHT_BOLD, IndexedColors.MAROON.getIndex(), CellStyle.BORDER_THIN, CellStyle.BORDER_THIN, CellStyle.BORDER_THIN, CellStyle.BORDER_THIN);
+
+		private void setStyles() {
+			cellStyleNormal = createCellStyle(Font.BOLDWEIGHT_NORMAL,
+					IndexedColors.WHITE.getIndex(), CellStyle.BORDER_NONE,
+					CellStyle.BORDER_NONE, CellStyle.BORDER_NONE,
+					CellStyle.BORDER_NONE);
+			cellStyleTitle = createCellStyle(Font.BOLDWEIGHT_BOLD,
+					IndexedColors.WHITE.getIndex(), CellStyle.BORDER_MEDIUM,
+					CellStyle.BORDER_MEDIUM, CellStyle.BORDER_MEDIUM,
+					CellStyle.BORDER_MEDIUM);
+			cellStyleTableRowLeft = createCellStyle(Font.BOLDWEIGHT_BOLD,
+					IndexedColors.WHITE.getIndex(), CellStyle.BORDER_THIN,
+					CellStyle.BORDER_MEDIUM, CellStyle.BORDER_THIN,
+					CellStyle.BORDER_THIN);
+			cellStyleTableRowRight = createCellStyle(Font.BOLDWEIGHT_BOLD,
+					IndexedColors.WHITE.getIndex(), CellStyle.BORDER_THIN,
+					CellStyle.BORDER_THIN, CellStyle.BORDER_MEDIUM,
+					CellStyle.BORDER_THIN);
+			cellStyleTableRowLeftOdd = createCellStyle(Font.BOLDWEIGHT_BOLD,
+					IndexedColors.LIGHT_TURQUOISE.getIndex(),
+					CellStyle.BORDER_THIN, CellStyle.BORDER_MEDIUM,
+					CellStyle.BORDER_THIN, CellStyle.BORDER_THIN);
+			cellStyleTableRowRightOdd = createCellStyle(Font.BOLDWEIGHT_BOLD,
+					IndexedColors.LIGHT_TURQUOISE.getIndex(),
+					CellStyle.BORDER_THIN, CellStyle.BORDER_THIN,
+					CellStyle.BORDER_MEDIUM, CellStyle.BORDER_THIN);
+			cellStyleTableRowError = createCellStyle(Font.BOLDWEIGHT_BOLD,
+					IndexedColors.MAROON.getIndex(), CellStyle.BORDER_THIN,
+					CellStyle.BORDER_THIN, CellStyle.BORDER_THIN,
+					CellStyle.BORDER_THIN);
 		}
 	}
 }
